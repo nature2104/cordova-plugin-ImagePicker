@@ -228,10 +228,28 @@
         id asset = assets[idx];
 
         __block NSInteger index = idx;
-        __block NSString *fileName = [self getFileNameForAsset:asset];
-
+        __block NSString * fileName = [self getFileNameForAsset:asset];
+        
+        //IOS11 heic图片的处理
+        NSString *originExt = [[fileName pathExtension] lowercaseString];
+        if([originExt isEqualToString:@"heic"]) {
+            fileName = [[[fileName lastPathComponent] stringByDeletingPathExtension] stringByAppendingPathExtension:@"JPG"];
+            [[TZImageManager manager] getOriginalPhotoWithAsset:asset completion:^(UIImage *photo, NSDictionary *info) {
+                NSData *compressed = [UIImage lubanCompressImage:photo];
+                UIImage *newImage   = [UIImage imageWithData:compressed];
+                NSString *path = [self saveNSDataToFile:compressed withName:fileName];
+                NSDictionary* fileObj = @{
+                                          @"path": path,
+                                          @"width": @(newImage.size.width * newImage.scale),
+                                          @"height": @(newImage.size.height * newImage.scale),
+                                          @"size": @([compressed length])
+                                          };
+                [originalPaths addObject:fileObj];
+                index += 1;
+                [self saveOriginalImage:assets currentIdx:index originalPathArray:originalPaths completion:completion];
+            }];
+        }else{
         [[TZImageManager manager] getOriginalPhotoDataWithAsset:asset completion:^(NSData *data, NSDictionary *info, BOOL isDegraded) {
-
             NSString *path = [self saveNSDataToFile:data withName:fileName];
             NSDictionary* fileObj = @{
                                       @"path": path,
@@ -244,6 +262,7 @@
             index += 1;
             [self saveOriginalImage:assets currentIdx:index originalPathArray:originalPaths completion:completion];
         }];
+    }
     }
     else {
         if (completion) {
